@@ -3,9 +3,13 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"strings"
+	"time"
 )
 
 // KafkaLogParser parses Kafka binary log files
@@ -401,6 +405,73 @@ func PrintBatchSummary(batches []RecordBatch) {
 	}
 }
 
+type JSONData struct {
+	Header struct {
+		Timestamp time.Time `json:"timestamp"`
+	} `json:"header"`
+	Event struct {
+		Type        string                 `json:"_type"`
+		Op          string                 `json:"op"`
+		ObjectID    string                 `json:"object_id"`
+		ObjectType  string                 `json:"object_type"`
+		ObjectData  map[string]interface{} `json:"object_data"`
+		ObjectPatch map[string]interface{} `json:"object_patch"`
+	} `json:"event"`
+}
+
+func getBatchSummary(batches []RecordBatch, filterString string) {
+	var jsonDataList []JSONData
+	for _, batch := range batches {
+
+		for _, record := range batch.Records {
+			if record.Value != nil {
+				// fmt.Printf("%s \n%s \n", string(record.Key), string(record.Value))
+				var jsonData JSONData
+				err := json.Unmarshal([]byte(record.Value), &jsonData)
+				if err != nil {
+					fmt.Println("Error unmarshaling JSON:", err)
+					return
+				}
+				// Filter the data based on ObjectID ending with a particular string
+				// could also be done based on record.key
+				if strings.HasSuffix(jsonData.Event.ObjectID, filterString) {
+					jsonDataList = append(jsonDataList, jsonData)
+				}
+
+			}
+
+		}
+	}
+	// Sort the data based on Timestamp
+	sort.Slice(jsonDataList, func(i, j int) bool {
+		return jsonDataList[i].Header.Timestamp.Before(jsonDataList[j].Header.Timestamp)
+	})
+
+	// Print the filtered and sorted data
+	for _, data := range jsonDataList {
+		fmt.Printf("%+v\n\n", data)
+	}
+}
+
+func getBatchSummarySimplified(batches []RecordBatch, filterString string) {
+	var jsonDataList []string
+	for _, batch := range batches {
+
+		for _, record := range batch.Records {
+			if record.Value != nil {
+				// Filter the data based on ObjectID ending with a particular string
+				if strings.HasSuffix(string(record.Key), filterString) {
+					jsonDataList = append(jsonDataList, string(record.Value))
+				}
+			}
+		}
+	}
+	// Print the filtered and sorted data
+	for _, data := range jsonDataList {
+		fmt.Printf("%+v\n\n", data)
+	}
+}
+
 func main() {
 	// if len(os.Args) < 2 {
 	// 	fmt.Println("Usage: kafka-log-parser <log-file-path>")
@@ -417,5 +488,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	PrintBatchSummary(batches)
+	getBatchSummarySimplified(batches, "::FRE_IP_fd500")
 }
