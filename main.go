@@ -2,14 +2,26 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
 
 func main() {
-	rootDir := "C:\\Users\\skovi\\Downloads\\bp2-kafka_messages"
-	searchString := "bp.nsi.v3.changes.fre"
+
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: kafka-log-parser <log-file-folder> <log-topic-suffix> <fre-id>")
+		os.Exit(1)
+	}
+
+	rootDir := os.Args[1]
+	searchString := os.Args[2]
+	kafka_id_prefix := os.Args[3]
+
+	// rootDir := "C:\\Users\\skovi\\Downloads\\bp2-kafka_messages"
+
+	// searchString := "bp.nsi.v3.changes.fre"
 	logFileExtension := ".log"
 
-	kafka_id_prefix := "::FRE_IP_fd500"
+	// kafka_id_prefix := "::FRE_IP_fd500"
 
 	logFiles, err := searchFiles(rootDir, searchString, logFileExtension)
 	if err != nil {
