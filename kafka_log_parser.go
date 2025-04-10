@@ -453,7 +453,7 @@ func getBatchSummary(batches []RecordBatch, filterString string) {
 	}
 }
 
-func getBatchSummarySimplified(batches []RecordBatch, filterString string) {
+func getBatchSummarySimplified(batches []RecordBatch, filterString string) []string {
 	var jsonDataList []string
 	for _, batch := range batches {
 
@@ -467,19 +467,20 @@ func getBatchSummarySimplified(batches []RecordBatch, filterString string) {
 		}
 	}
 	// Print the filtered and sorted data
-	for _, data := range jsonDataList {
-		fmt.Printf("%+v\n\n", data)
-	}
+	// for _, data := range jsonDataList {
+	// 	fmt.Printf("%+v\n\n", data)
+	// }
+	return jsonDataList
 }
 
-func main() {
+func execute(logFilePath string, id_prefix string) []string {
 	// if len(os.Args) < 2 {
 	// 	fmt.Println("Usage: kafka-log-parser <log-file-path>")
 	// 	os.Exit(1)
 	// }
 
 	// logFilePath := os.Args[1]
-	logFilePath := "tests\\00000000000000000000.log"
+	// logFilePath := "tests\\00000000000000000000.log"
 	parser := NewKafkaLogParser(logFilePath)
 
 	batches, err := parser.Parse()
@@ -488,5 +489,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	getBatchSummarySimplified(batches, "::FRE_IP_fd500")
+	return getBatchSummarySimplified(batches, id_prefix)
 }
