@@ -460,7 +460,7 @@ func getBatchSummarySimplified(batches []RecordBatch, filterString string) []str
 		for _, record := range batch.Records {
 			if record.Value != nil {
 				// Filter the data based on ObjectID ending with a particular string
-				if strings.HasSuffix(string(record.Key), filterString) {
+				if strings.Contains(string(record.Value), filterString) {
 					jsonDataList = append(jsonDataList, string(record.Value))
 				}
 			}
