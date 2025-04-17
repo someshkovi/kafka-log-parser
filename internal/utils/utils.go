@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func searchFiles(rootDir string, searchString string, logFileExtension string) ([]string, error) {
+func SearchFiles(rootDir string, searchString string, logFileExtension string) ([]string, error) {
 	var logFiles []string
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {

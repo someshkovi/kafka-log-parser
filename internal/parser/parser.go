@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bufio"
@@ -473,7 +473,7 @@ func getBatchSummarySimplified(batches []RecordBatch, filterString string) []str
 	return jsonDataList
 }
 
-func execute(logFilePath string, id_prefix string) []string {
+func Execute(logFilePath string, id_prefix string) []string {
 	// if len(os.Args) < 2 {
 	// 	fmt.Println("Usage: kafka-log-parser <log-file-path>")
 	// 	os.Exit(1)

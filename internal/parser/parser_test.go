@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"path/filepath"
@@ -11,7 +11,7 @@ func TestLogParserExecute(t *testing.T) {
 	logFilePath := filepath.Join("tests", "bp.nsi.v3.changes.fre", "00000000000000000000.log")
 	id_prefix := "11648c51-49de-3a40-bcdd-d1cd1764dcc1::FRE_IP_fd500"
 
-	got := execute(logFilePath, id_prefix)
+	got := Execute(logFilePath, id_prefix)
 	// want := []string{"rest"}
 	length := 4
 
