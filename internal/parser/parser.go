@@ -51,6 +51,18 @@ type RecordHeader struct {
 	Value []byte
 }
 
+type InputParams struct {
+	FilterIdsOnly   bool
+	IdCompleteMatch bool // To be used in conjuction with FilterIdsOnly
+}
+
+func DefaultInputParams() InputParams {
+	return InputParams{
+		FilterIdsOnly:   false,
+		IdCompleteMatch: false,
+	}
+}
+
 // NewKafkaLogParser creates a new parser instance
 func NewKafkaLogParser(filePath string) *KafkaLogParser {
 	return &KafkaLogParser{
@@ -419,61 +431,103 @@ type JSONData struct {
 	} `json:"event"`
 }
 
-func getBatchSummary(batches []RecordBatch, filterString string) {
-	var jsonDataList []JSONData
-	for _, batch := range batches {
-
-		for _, record := range batch.Records {
-			if record.Value != nil {
-				// fmt.Printf("%s \n%s \n", string(record.Key), string(record.Value))
-				var jsonData JSONData
-				err := json.Unmarshal([]byte(record.Value), &jsonData)
-				if err != nil {
-					fmt.Println("Error unmarshaling JSON:", err)
-					return
-				}
-				// Filter the data based on ObjectID ending with a particular string
-				// could also be done based on record.key
-				if strings.HasSuffix(jsonData.Event.ObjectID, filterString) {
-					jsonDataList = append(jsonDataList, jsonData)
-				}
-
-			}
-
-		}
-	}
-	// Sort the data based on Timestamp
-	sort.Slice(jsonDataList, func(i, j int) bool {
-		return jsonDataList[i].Header.Timestamp.Before(jsonDataList[j].Header.Timestamp)
-	})
-
-	// Print the filtered and sorted data
-	for _, data := range jsonDataList {
-		fmt.Printf("%+v\n\n", data)
-	}
-}
-
-func getBatchSummarySimplified(batches []RecordBatch, filterString string) []string {
+func getBatchSummarySimplified(batches []RecordBatch, filterString string, FilterIdsOnly bool, IdCompleteMatch bool) []string {
 	var jsonDataList []string
 	for _, batch := range batches {
 
 		for _, record := range batch.Records {
 			if record.Value != nil {
-				// Filter the data based on ObjectID ending with a particular string
-				if strings.Contains(string(record.Value), filterString) {
-					jsonDataList = append(jsonDataList, string(record.Value))
+
+				var data map[string]interface{}
+
+				err := json.Unmarshal([]byte(record.Value), &data)
+				if err != nil {
+					fmt.Println("Error unmarshaling JSON:", err)
+				}
+
+				// timestamp, ok := data["header"].(map[string]interface{})["timestamp"].(string)
+				// if !ok {
+				// 	fmt.Println("Error: timestamp not found in JSON")
+				// 	continue
+				// }
+
+				// event, ok := data["event"].(map[string]interface{})
+				// if !ok {
+				// 	fmt.Println("Error: event not found in JSON")
+				// 	continue
+				// }
+
+				objectId, ok := data["event"].(map[string]interface{})["object_id"].(string)
+				if !ok {
+					fmt.Println("Error: object_id not found in JSON")
+					continue
+				}
+
+				if FilterIdsOnly {
+					if IdCompleteMatch {
+						if objectId == filterString {
+							jsonDataList = append(jsonDataList, string(record.Value))
+						}
+					} else {
+						if strings.Contains(objectId, filterString) {
+							jsonDataList = append(jsonDataList, string(record.Value))
+						}
+					}
+				} else {
+					if strings.Contains(string(record.Value), filterString) {
+						jsonDataList = append(jsonDataList, string(record.Value))
+					}
 				}
 			}
 		}
 	}
-	// Print the filtered and sorted data
-	// for _, data := range jsonDataList {
-	// 	fmt.Printf("%+v\n\n", data)
-	// }
 	return jsonDataList
 }
 
-func Execute(logFilePath string, id_prefix string) []string {
+func getEvents(batches []RecordBatch, filterString string, FilterIdsOnly bool, IdCompleteMatch bool) []JSONData {
+	var jsonDataList []JSONData
+	for _, batch := range batches {
+
+		for _, record := range batch.Records {
+			if record.Value != nil {
+
+				var jsonData JSONData
+				err := json.Unmarshal([]byte(record.Value), &jsonData)
+				if err != nil {
+					fmt.Println("Error unmarshaling JSON:", err)
+				}
+				// Filter the data based on ObjectID ending with a particular string
+				// could also be done based on record.key
+
+				if FilterIdsOnly {
+					if IdCompleteMatch {
+						if jsonData.Event.ObjectID == filterString {
+							jsonDataList = append(jsonDataList, jsonData)
+						}
+					} else {
+						if strings.HasSuffix(jsonData.Event.ObjectID, filterString) {
+							jsonDataList = append(jsonDataList, jsonData)
+						}
+					}
+				} else {
+					if strings.Contains(string(record.Value), filterString) {
+						jsonDataList = append(jsonDataList, jsonData)
+					}
+				}
+			}
+		}
+	}
+	return jsonDataList
+}
+
+func getSortedEvents(events []JSONData) []JSONData {
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].Header.Timestamp.Before(events[j].Header.Timestamp)
+	})
+	return events
+}
+
+func Execute(logFilePath string, id_prefix string, InputParams InputParams) []string {
 	// if len(os.Args) < 2 {
 	// 	fmt.Println("Usage: kafka-log-parser <log-file-path>")
 	// 	os.Exit(1)
@@ -489,5 +543,33 @@ func Execute(logFilePath string, id_prefix string) []string {
 		os.Exit(1)
 	}
 
-	return getBatchSummarySimplified(batches, id_prefix)
+	return getBatchSummarySimplified(batches, id_prefix, InputParams.FilterIdsOnly, InputParams.IdCompleteMatch)
+}
+
+func BulkExecute(logFilePaths []string, id_prefix string, InputParams InputParams) []JSONData {
+	var allResults []JSONData
+	for _, logFilePath := range logFilePaths {
+		parser := NewKafkaLogParser(logFilePath)
+
+		batches, err := parser.Parse()
+		if err != nil {
+			fmt.Printf("Error parsing log file: %v\n", err)
+			os.Exit(1)
+		}
+		results := getEvents(batches, id_prefix, InputParams.FilterIdsOnly, InputParams.IdCompleteMatch)
+		if len(results) > 0 {
+			fmt.Println(logFilePath, len(results))
+			for _, data := range results {
+				jsonData, err := json.Marshal(data)
+				if err != nil {
+					fmt.Printf("Error marshaling JSON: %s", err)
+				}
+
+				fmt.Println(string(jsonData))
+			}
+			allResults = append(allResults, results...)
+		}
+	}
+	allResults = getSortedEvents(allResults)
+	return allResults
 }

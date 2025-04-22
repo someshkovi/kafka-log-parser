@@ -31,10 +31,17 @@ data can be further filtered by a specific FRE ID.`,
 			dir, _ := cmd.Flags().GetString("dir")     // Get the value of the "dir" flag
 			topic, _ := cmd.Flags().GetString("topic") // Get the value of the "topic" flag
 
+			FilterIdsOnly, _ := cmd.Flags().GetBool("filterId")
+			IdCompleteMatch, _ := cmd.Flags().GetBool("idMatch")
+
 			if dir == "" || topic == "" {
 				fmt.Fprintln(os.Stderr, "Error: Both -dir and -topic flags are required for the 'search' command")
 				os.Exit(1)
 			}
+
+			inputParams := parser.DefaultInputParams()
+			inputParams.FilterIdsOnly = FilterIdsOnly
+			inputParams.IdCompleteMatch = IdCompleteMatch
 
 			logFileExtension := ".log"
 			logFiles, err := utils.SearchFiles(dir, topic, logFileExtension)
@@ -48,15 +55,7 @@ data can be further filtered by a specific FRE ID.`,
 				os.Exit(1)
 			} else {
 				fmt.Printf("Log files with topic %s: %d\n", topic, len(logFiles))
-				for _, file := range logFiles {
-					kafkaEvents := parser.Execute(file, freID)
-					if len(kafkaEvents) > 0 {
-						fmt.Println(file, len(kafkaEvents))
-						for _, data := range kafkaEvents {
-							fmt.Println(data)
-						}
-					}
-				}
+				parser.BulkExecute(logFiles, freID, inputParams)
 			}
 		},
 	}
@@ -73,7 +72,9 @@ data can be further filtered by a specific FRE ID.`,
 				os.Exit(1)
 			}
 
-			kafkaEvents := parser.Execute(file, freID)
+			inputParams := parser.DefaultInputParams()
+
+			kafkaEvents := parser.Execute(file, freID, inputParams)
 			if len(kafkaEvents) > 0 {
 				for _, data := range kafkaEvents {
 					fmt.Println(data)
@@ -103,6 +104,9 @@ func init() {
 	_ = searchCmd.MarkFlagRequired("dir") // Mark dir as required for search command
 	searchCmd.Flags().StringP("topic", "t", "", "Suffix of the Kafka topic to filter log files (required)")
 	_ = searchCmd.MarkFlagRequired("topic") // Mark topic as required for search command
+
+	searchCmd.Flags().Bool("filterId", false, "will only filter ids")
+	searchCmd.Flags().Bool("idMatch", false, "will match complete id, to be used along with filterId")
 
 	// Add a flag to the parse command
 	parseCmd.Flags().StringP("file", "f", "", "Path to the Kafka log file (required)")
