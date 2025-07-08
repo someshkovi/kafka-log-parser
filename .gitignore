@@ -13,3 +13,6 @@
 
 # output files
 out.txt
+records.json
+filtered_records.json
+formatted_records.json

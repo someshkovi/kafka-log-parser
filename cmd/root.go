@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -55,7 +56,26 @@ data can be further filtered by a specific FRE ID.`,
 				os.Exit(1)
 			} else {
 				fmt.Printf("Log files with topic %s: %d\n", topic, len(logFiles))
-				parser.BulkExecute(logFiles, freID, inputParams)
+				kafkaEvents := parser.BulkExecute(logFiles, freID, inputParams)
+				if len(kafkaEvents) > 0 {
+					// Convert to JSON with indentation for readability
+					jsonData, err := json.MarshalIndent(kafkaEvents, "", "  ")
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+						os.Exit(1)
+					}
+
+					// Write to records.json file
+					err = os.WriteFile("records.json", jsonData, 0644)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error writing to records.json: %v\n", err)
+						os.Exit(1)
+					}
+
+					fmt.Printf("Successfully saved %d records to records.json\n", len(kafkaEvents))
+				} else {
+					fmt.Println("No matching Kafka events found. No file created.")
+				}
 			}
 		},
 	}
