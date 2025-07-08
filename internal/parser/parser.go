@@ -422,12 +422,12 @@ type JSONData struct {
 		Timestamp time.Time `json:"timestamp"`
 	} `json:"header"`
 	Event struct {
-		Type        string                 `json:"_type"`
-		Op          string                 `json:"op"`
-		ObjectID    string                 `json:"object_id"`
-		ObjectType  string                 `json:"object_type"`
-		ObjectData  map[string]interface{} `json:"object_data"`
-		ObjectPatch map[string]interface{} `json:"object_patch"`
+		Type        string      `json:"_type"`
+		Op          string      `json:"op"`
+		ObjectID    string      `json:"object_id"`
+		ObjectType  string      `json:"object_type"`
+		ObjectData  interface{} `json:"object_data"`
+		ObjectPatch interface{} `json:"object_patch"`
 	} `json:"event"`
 }
 
@@ -494,7 +494,8 @@ func getEvents(batches []RecordBatch, filterString string, FilterIdsOnly bool, I
 				var jsonData JSONData
 				err := json.Unmarshal([]byte(record.Value), &jsonData)
 				if err != nil {
-					fmt.Println("Error unmarshaling JSON:", err)
+					fmt.Println("Error unmarshaling JSON:", err, "record value", record.Value)
+					continue
 				}
 				// Filter the data based on ObjectID ending with a particular string
 				// could also be done based on record.key
